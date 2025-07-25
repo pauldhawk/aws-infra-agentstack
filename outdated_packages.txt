@@ -1,6 +1,0 @@
-Package    Version Latest Type
----------- ------- ------ -----
-grpcio     1.66.2  1.74.0 wheel
-protobuf   4.25.8  6.31.1 wheel
-pulumi_aws 5.43.0  7.1.0  wheel
-setuptools 65.5.0  80.9.0 wheel
