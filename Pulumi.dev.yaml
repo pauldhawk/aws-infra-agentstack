@@ -1,5 +1,6 @@
 config:
-  aws:region: us-east-1
+  aws:region:
+    secure: AAABAHHKKhkbHSsoxcmlOTpZsyCOu4GIJ56MwB65x5vsCbe60ktmlvI=
   # Domain name to use for the public n8n endpoint.  This must be
   # pre‑configured to resolve to the EC2 instance’s elastic IP via your DNS
   # provider.  Caddy will automatically obtain a TLS certificate from
@@ -24,13 +25,15 @@ config:
   aws‑infra‑agentstack:instanceType: t3.small
   # Database engine version.  Aurora PostgreSQL with serverless v2 is
   # configured automatically.
-  aws‑infra‑agentstack:dbEngineVersion: "13.8"
+  aws‑infra‑agentstack:dbEngineVersion: "17"
   # Number of Aurora capacity units (ACU) to provision in the serverless
   # cluster.  Values between 0.5 and 64 are allowed; 2 ACU is a
   # reasonable default for small workloads.
-  aws‑infra‑agentstack:dbMinCapacity: 2
-  aws‑infra‑agentstack:dbMaxCapacity: 4
+  aws‑infra‑agentstack:dbMinCapacity: "2"
+  aws‑infra‑agentstack:dbMaxCapacity: "4"
   # Optional: SSH public key for the EC2 instance.  If provided, Pulumi
   # creates a new EC2 key pair and installs this public key on the instance
   # to allow SSH access.  Use the contents of your local ~/.ssh/id_rsa.pub.
   aws‑infra‑agentstack:sshPublicKey: ""
+  aws-infra-agentstack:n8nDomain: n8n.paulhawk.com
+  aws-infra-agentstack:backupBucketName: pulumi-backups
