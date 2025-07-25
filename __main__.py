@@ -194,11 +194,11 @@ backup_bucket = aws.s3.Bucket(
     bucket=backup_bucket_name,
     versioning=aws.s3.BucketVersioningArgs(enabled=True),
     server_side_encryption_configuration=aws.s3.BucketServerSideEncryptionConfigurationArgs(
-        rules=[aws.s3.BucketServerSideEncryptionConfigurationRuleArgs(
+        rule=aws.s3.BucketServerSideEncryptionConfigurationRuleArgs(
             apply_server_side_encryption_by_default=aws.s3.BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefaultArgs(
                 sse_algorithm="AES256"
             )
-        )]
+        )
     ),
     tags={"Name": pulumi.get_project() + "-backup"},
     opts=pulumi.ResourceOptions(provider=provider),
@@ -333,10 +333,10 @@ aurora_cluster = aws.rds.Cluster(
     storage_encrypted=True,
     backup_retention_period=7,
     engine_mode="provisioned",
-    serverlessv2_scaling_configuration=aws.rds.ClusterServerlessV2ScalingConfigurationArgs(
-        min_capacity=db_min_capacity,
-        max_capacity=db_max_capacity,
-    ),
+    serverlessv2_scaling_configuration={
+        "min_capacity": db_min_capacity,
+        "max_capacity": db_max_capacity,
+    },
     tags={"Name": pulumi.get_project() + "-aurora"},
     opts=pulumi.ResourceOptions(provider=provider),
 )
