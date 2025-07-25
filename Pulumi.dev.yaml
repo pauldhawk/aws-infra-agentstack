@@ -35,3 +35,5 @@ config:
   # creates a new EC2 key pair and installs this public key on the instance
   # to allow SSH access.  Use the contents of your local ~/.ssh/id_rsa.pub.
   aws‑infra‑agentstack:sshPublicKey: ""
+  aws-infra-agentstack:n8nDomain: n8n.paulhawk.com
+  aws-infra-agentstack:backupBucketName: pulumi_backups

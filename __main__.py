@@ -415,8 +415,19 @@ user_data_lines.append("export N8N_HOST='{0}'".format(n8n_domain))
 user_data_lines.append("# Fetch secrets and create .env files for n8n and zep\n./fetch_secrets.sh")
 user_data_lines.append("# Start the stack\ndocker compose up -d")
 user_data_lines.append("# Schedule daily backups at 2 AM\n(crontab -l 2>/dev/null; echo '0 2 * * * cd /opt/app && ./backup_to_s3.sh') | crontab -")
-user_data_lines.append("# Health check script\ncat > /usr/local/bin/n8n-health-check.sh <<'EOF'\n#!/bin/bash\nURL="https://{0}"\nif ! curl -fsSL $URL >/dev/null; then\n  logger -p user.warn 'n8n health check failed'\nfi\nEOF\nchmod +x /usr/local/bin/n8n-health-check.sh\n(crontab -l; echo '*/5 * * * * /usr/local/bin/n8n-health-check.sh') | crontab -".format(n8n_domain))
-
+user_data_lines.append(
+    "# Health check script\n"
+    "cat > /usr/local/bin/n8n-health-check.sh <<'EOF'\n"
+    "#!/bin/bash\n"
+    "URL=\\\"https://{0}\\\"\n"
+    "if ! curl -fsSL $URL >/dev/null; then\n"
+    "  logger -p user.warn 'n8n health check failed'\n"
+    "fi\n"
+    "EOF\n"
+    "chmod +x /usr/local/bin/n8n-health-check.sh\n"
+    "(crontab -l; echo '*/5 * * * * /usr/local/bin/n8n-health-check.sh') | crontab -"
+    .format(n8n_domain)
+)
 user_data = "\n".join(user_data_lines)
 
 ec2_instance = aws.ec2.Instance(
