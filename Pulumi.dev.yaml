@@ -10,13 +10,13 @@ config:
   # secret should contain a JSON object with at least a property called
   # "N8N_API_KEY"; additional keys will be exported as environment
   # variables for the n8n container.
-  aws‑infra‑agentstack:n8nSecretName: n8n/credentials
+  aws‑infra‑agentstack:n8nSecretName: n8n/credential
   # Secrets Manager name storing the Zep database credentials.  The secret
   # should contain at least "username" and "password" keys which are
   # applied to the Aurora cluster.
   aws‑infra‑agentstack:dbSecretName: zep/db
   # Optional: secret for Qdrant if using API keys.
-  aws‑infra‑agentstack:qdrantSecretName: qdrant/credentials
+  aws‑infra‑agentstack:qdrantSecretName: qdrant/credential
   # S3 bucket used for encrypted backups of Docker volumes.  If the
   # bucket does not exist Pulumi will create it.
   aws‑infra‑agentstack:backupBucketName: n8n-backups-${pulumi‑stack}
@@ -25,7 +25,7 @@ config:
   aws‑infra‑agentstack:instanceType: t3.small
   # Database engine version.  Aurora PostgreSQL with serverless v2 is
   # configured automatically.
-  aws‑infra‑agentstack:dbEngineVersion: "13.8"
+  aws‑infra‑agentstack:dbEngineVersion: "17"
   # Number of Aurora capacity units (ACU) to provision in the serverless
   # cluster.  Values between 0.5 and 64 are allowed; 2 ACU is a
   # reasonable default for small workloads.
@@ -36,4 +36,4 @@ config:
   # to allow SSH access.  Use the contents of your local ~/.ssh/id_rsa.pub.
   aws‑infra‑agentstack:sshPublicKey: ""
   aws-infra-agentstack:n8nDomain: n8n.paulhawk.com
-  aws-infra-agentstack:backupBucketName: pulumi_backups
+  aws-infra-agentstack:backupBucketName: pulumi-backups

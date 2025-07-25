@@ -20,7 +20,7 @@ from typing import List
 
 import pulumi
 import pulumi_aws as aws
-
+import pulumi_random as random
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -49,7 +49,7 @@ instance_type: str = config.get("instanceType") or "t3.small"
 backup_bucket_name: str = config.require("backupBucketName")
 
 # Database configuration
-db_engine_version: str = config.get("dbEngineVersion") or "13.8"
+db_engine_version: str = config.get("dbEngineVersion") or "17"
 db_min_capacity: float = config.get_float("dbMinCapacity") or 2.0
 db_max_capacity: float = config.get_float("dbMaxCapacity") or 4.0
 
@@ -81,64 +81,142 @@ vpc = aws.ec2.Vpc(
     opts=pulumi.ResourceOptions(provider=provider),
 )
 
-availability_zone = pulumi.Output.concat(aws.config.region, "a")
+# Fetch the first two available availability zones in the current region
+available_zones = aws.get_availability_zones(state="available", opts=pulumi.InvokeOptions(provider=provider))
+availability_zone_1 = available_zones.names[0]
+availability_zone_2 = available_zones.names[1]
 
-public_subnet = aws.ec2.Subnet(
-    "public-subnet",
+public_subnet_1 = aws.ec2.Subnet(
+    "public-subnet-1",
     vpc_id=vpc.id,
-    cidr_block="10.0.1.0/24",
-    availability_zone=availability_zone,
+    cidr_block="10.0.10.0/24",  # Changed to avoid overlap
+    availability_zone=availability_zone_1,
     map_public_ip_on_launch=True,
-    tags={"Name": pulumi.get_project() + "-public"},
+    tags={"Name": pulumi.get_project() + "-public-1"},
     opts=pulumi.ResourceOptions(provider=provider),
 )
 
-private_subnet = aws.ec2.Subnet(
-    "private-subnet",
+public_subnet_2 = aws.ec2.Subnet(
+    "public-subnet-2",
     vpc_id=vpc.id,
-    cidr_block="10.0.2.0/24",
-    availability_zone=availability_zone,
-    map_public_ip_on_launch=False,
-    tags={"Name": pulumi.get_project() + "-private"},
+    cidr_block="10.0.3.0/24",
+    availability_zone=availability_zone_2,
+    map_public_ip_on_launch=True,
+    tags={"Name": pulumi.get_project() + "-public-2"},
     opts=pulumi.ResourceOptions(provider=provider),
 )
 
-igw = aws.ec2.InternetGateway(
-    "igw",
+private_subnet_1 = aws.ec2.Subnet(
+    "private-subnet-1",
+    vpc_id=vpc.id,
+    cidr_block="10.0.200.0/24",
+    availability_zone=availability_zone_1,
+    map_public_ip_on_launch=False,
+    tags={"Name": pulumi.get_project() + "-private-1"},
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+
+private_subnet_2 = aws.ec2.Subnet(
+    "private-subnet-2",
+    vpc_id=vpc.id,
+    cidr_block="10.0.4.0/24",
+    availability_zone=availability_zone_2,
+    map_public_ip_on_launch=False,
+    tags={"Name": pulumi.get_project() + "-private-2"},
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+
+# Route table associations for public subnets
+# Create an Internet Gateway for the VPC
+internet_gateway = aws.ec2.InternetGateway(
+    "internet-gateway",
     vpc_id=vpc.id,
     tags={"Name": pulumi.get_project() + "-igw"},
     opts=pulumi.ResourceOptions(provider=provider),
 )
 
-# Public route table routes traffic to the internet via IGW
 public_rt = aws.ec2.RouteTable(
     "public-rt",
     vpc_id=vpc.id,
-    routes=[aws.ec2.RouteTableRouteArgs(cidr_block="0.0.0.0/0", gateway_id=igw.id)],
+    routes=[aws.ec2.RouteTableRouteArgs(cidr_block="0.0.0.0/0", gateway_id=internet_gateway.id)],
     tags={"Name": pulumi.get_project() + "-public-rt"},
     opts=pulumi.ResourceOptions(provider=provider),
 )
+
 aws.ec2.RouteTableAssociation(
-    "public-rt-assoc",
-    subnet_id=public_subnet.id,
+    "public-rt-assoc-1",
+    subnet_id=public_subnet_1.id,
     route_table_id=public_rt.id,
     opts=pulumi.ResourceOptions(provider=provider),
 )
+aws.ec2.RouteTableAssociation(
+    "public-rt-assoc-2",
+    subnet_id=public_subnet_2.id,
+    route_table_id=public_rt.id,
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+eip_1 = aws.ec2.Eip(
+    "nat-eip-1",
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+nat_gw_1 = aws.ec2.NatGateway(
+    "nat-gw-1",
+    allocation_id=eip_1.id,
+    subnet_id=public_subnet_1.id,
+    tags={"Name": pulumi.get_project() + "-nat-gw-1"},
+    opts=pulumi.ResourceOptions(provider=provider),
+)
 
+eip_2 = aws.ec2.Eip(
+    "nat-eip-2",
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+nat_gw_2 = aws.ec2.NatGateway(
+    "nat-gw-2",
+    allocation_id=eip_2.id,
+    subnet_id=public_subnet_2.id,
+    tags={"Name": pulumi.get_project() + "-nat-gw-2"},
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+
+private_rt_1 = aws.ec2.RouteTable(
+    "private-rt-1",
+    vpc_id=vpc.id,
+    routes=[aws.ec2.RouteTableRouteArgs(cidr_block="0.0.0.0/0", nat_gateway_id=nat_gw_1.id)],
+    tags={"Name": pulumi.get_project() + "-private-rt-1"},
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+private_rt_2 = aws.ec2.RouteTable(
+    "private-rt-2",
+    vpc_id=vpc.id,
+    routes=[aws.ec2.RouteTableRouteArgs(cidr_block="0.0.0.0/0", nat_gateway_id=nat_gw_2.id)],
+    tags={"Name": pulumi.get_project() + "-private-rt-2"},
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+aws.ec2.RouteTableAssociation(
+    "private-rt-assoc-1",
+    subnet_id=private_subnet_1.id,
+    route_table_id=private_rt_1.id,
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+aws.ec2.RouteTableAssociation(
+    "private-rt-assoc-2",
+    subnet_id=private_subnet_2.id,
+    route_table_id=private_rt_2.id,
+    opts=pulumi.ResourceOptions(provider=provider),
+)
 # NAT Gateway to allow private subnet to access the internet
 eip = aws.ec2.Eip(
     "nat-eip",
-    vpc=True,
     opts=pulumi.ResourceOptions(provider=provider),
 )
 nat_gw = aws.ec2.NatGateway(
     "nat-gw",
     allocation_id=eip.id,
-    subnet_id=public_subnet.id,
+    subnet_id=public_subnet_1.id,
     tags={"Name": pulumi.get_project() + "-nat-gw"},
     opts=pulumi.ResourceOptions(provider=provider),
 )
-
 private_rt = aws.ec2.RouteTable(
     "private-rt",
     vpc_id=vpc.id,
@@ -148,7 +226,7 @@ private_rt = aws.ec2.RouteTable(
 )
 aws.ec2.RouteTableAssociation(
     "private-rt-assoc",
-    subnet_id=private_subnet.id,
+    subnet_id=private_subnet_1.id,
     route_table_id=private_rt.id,
     opts=pulumi.ResourceOptions(provider=provider),
 )
@@ -160,7 +238,7 @@ aws.ec2.RouteTableAssociation(
 ec2_sg = aws.ec2.SecurityGroup(
     "ec2-sg",
     vpc_id=vpc.id,
-    description="Allow HTTPS and SSH, plus intra‑VPC traffic",
+    description="Allow HTTPS and SSH plus intra-VPC traffic",
     ingress=[
         # SSH
         aws.ec2.SecurityGroupIngressArgs(protocol="tcp", from_port=22, to_port=22, cidr_blocks=["0.0.0.0/0"]),
@@ -189,9 +267,13 @@ db_sg = aws.ec2.SecurityGroup(
 # S3 bucket for backups
 # -----------------------------------------------------------------------------
 
+
+suffix = random.RandomPet("suffix")
+bucket_name = pulumi.Output.concat("pauldhawk-n8n-backups-", suffix.id)
+
 backup_bucket = aws.s3.Bucket(
     "backup-bucket",
-    bucket=backup_bucket_name,
+    bucket=bucket_name,
     versioning=aws.s3.BucketVersioningArgs(enabled=True),
     server_side_encryption_configuration=aws.s3.BucketServerSideEncryptionConfigurationArgs(
         rule=aws.s3.BucketServerSideEncryptionConfigurationRuleArgs(
@@ -263,10 +345,7 @@ qdrant_secret = ensure_secret(
         "api_key": secrets.token_urlsafe(24)
     }
 )
-
-# -----------------------------------------------------------------------------
-# IAM Role for EC2 instance
-# -----------------------------------------------------------------------------
+# db_subnet_group is defined only once above; this duplicate definition has been removed.
 
 # Assume role policy allowing EC2 to assume this role
 assume_role_policy = aws.iam.get_policy_document(
@@ -316,7 +395,7 @@ instance_profile = aws.iam.InstanceProfile(
 
 db_subnet_group = aws.rds.SubnetGroup(
     "db-subnet-group",
-    subnet_ids=[private_subnet.id],
+    subnet_ids=[private_subnet_1.id, private_subnet_2.id],
     tags={"Name": pulumi.get_project() + "-db-subnet"},
     opts=pulumi.ResourceOptions(provider=provider),
 )
@@ -377,19 +456,11 @@ ami = aws.ec2.get_ami(
     filters=[{"name": "name", "values": ["amzn2-ami-hvm-*-x86_64-gp2"]}],
 )
 
-# User data script.  This script runs on first boot to set up the instance.  It
-# installs Docker, Docker Compose, jq and the AWS CLI, checks out the repo,
-# pulls secrets from Secrets Manager and brings up the Docker Compose stack.
-user_data_lines: List[str] = []
-user_data_lines.append("#!/bin/bash -xe")
-user_data_lines.append("exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1")
-user_data_lines.append("yum update -y")
-user_data_lines.append("amazon-linux-extras install epel -y")
-user_data_lines.append("yum install -y docker git jq awscli")
-user_data_lines.append("systemctl enable docker")
-user_data_lines.append("systemctl start docker")
-user_data_lines.append("mkdir -p /opt/app")
-user_data_lines.append("cd /opt/app")
+# Prepare user_data script for EC2 instance
+user_data_lines = []
+user_data_lines.append("#!/bin/bash")
+user_data_lines.append("set -e")
+user_data_lines.append("cd /opt/app || mkdir -p /opt/app && cd /opt/app")
 user_data_lines.append("# Placeholder for cloning your repository; the repository URL should be configured after pushing to GitHub")
 user_data_lines.append("# git clone https://github.com/your-org/aws-infra-agentstack.git . || true")
 user_data_lines.append("# Pull down the docker-compose file if not present")
@@ -434,7 +505,7 @@ ec2_instance = aws.ec2.Instance(
     "n8n-host",
     ami=ami.id,
     instance_type=instance_type,
-    subnet_id=public_subnet.id,
+    subnet_id=public_subnet_1.id,
     vpc_security_group_ids=[ec2_sg.id],
     key_name=key_pair.key_name if key_pair else None,
     iam_instance_profile=instance_profile.name,
