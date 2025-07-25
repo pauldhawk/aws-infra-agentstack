@@ -1,0 +1,20 @@
+{
+    # Global Caddy options.  Provide an email address so Let’s Encrypt can
+    # contact you regarding certificate renewals and expiration notices.
+    email admin@example.com
+    acme_agree true
+}
+
+/* Replace `n8n.example.com` with the fully qualified domain that you
+   configure in Pulumi (n8nDomain).  Caddy will use this hostname to
+   automatically request and renew TLS certificates from Let’s Encrypt. */
+n8n.example.com {
+    encode gzip
+    # Proxy all HTTP requests to the n8n container.  The upstream must
+    # match the service name and port in docker-compose.yaml.
+    reverse_proxy n8n:5678
+    log {
+        output stdout
+        format json
+    }
+}
