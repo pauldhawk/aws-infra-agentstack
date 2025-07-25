@@ -1,0 +1,10 @@
+name: aws-infra-agentstack
+runtime: python
+description: |
+  Infrastructure as code for a self‑hosted n8n + Zep stack on AWS.
+  This project provisions a minimal production environment including a VPC,
+  public and private subnets, an EC2 instance with Docker Compose, an
+  Aurora Serverless PostgreSQL database, a Qdrant vector store and the
+  Zep long‑term memory service. All secrets are stored in AWS Secrets
+  Manager and TLS certificates are obtained automatically via Caddy and
+  Let’s Encrypt. See the README.md for deployment instructions.
