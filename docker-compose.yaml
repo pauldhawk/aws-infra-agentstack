@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  # Automation engine exposed publicly via Caddy on ports 80/443
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    env_file:
+      - .env.n8n
+    # Expose only internally; Caddy handles external TLS termination
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+    networks:
+      - internal
+
+  # Zep long‑term memory service.  Connects to Aurora via the
+  # POSTGRES_URI environment variable defined in .env.zep.
+  zep:
+    image: ghcr.io/getzep/zep:latest
+    restart: unless-stopped
+    env_file:
+      - .env.zep
+    depends_on:
+      - qdrant
+    volumes:
+      - ./zep_data:/home/zep/data
+    networks:
+      - internal
+
+  # Qdrant vector database.  Stores embeddings for Zep and n8n RAG workflows.
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+    networks:
+      - internal
+
+  # Caddy reverse proxy and TLS terminator.  Automatically obtains
+  # Let’s Encrypt certificates for the configured domain and proxies
+  # requests to the n8n service.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - n8n
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
