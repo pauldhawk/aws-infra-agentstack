@@ -129,8 +129,8 @@ const dbCluster = new aws.rds.Cluster("aurora-cluster", {
 const dbInstance = new aws.rds.ClusterInstance("aurora-instance", {
     clusterIdentifier: dbCluster.id,
     instanceClass: "db.serverless",
-    engine: dbCluster.engine,
-    engineVersion: dbCluster.engineVersion,
+    engine: "aurora-postgresql",
+    engineVersion: "13.6",
     publiclyAccessible: false,
     tags: { Name: "app-aurora-instance" },
 });
