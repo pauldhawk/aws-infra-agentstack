@@ -3,6 +3,5 @@
     reverse_proxy /n8n/* n8n:5678
     reverse_proxy /zep/* zep:8000
     reverse_proxy /qdrant/* qdrant:6333
-    # Uncomment the next line and set your email to enable automatic TLS
-    # tls you@example.com
+    tls hawkpaul@gmail.com
 }
