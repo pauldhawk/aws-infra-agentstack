@@ -1,4 +1,10 @@
-name: aws-infra-agentstack
-runtime: python
-description: |
-  Infrastructure as code for a self‑hosted n8n
+name: aws-infra-phawk
+description: A minimal TypeScript Pulumi program
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: typescript
