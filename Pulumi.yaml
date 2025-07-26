@@ -1,10 +1,6 @@
-name: aws-infra-phawk
-description: A minimal TypeScript Pulumi program
-runtime:
-  name: nodejs
-  options:
-    packagemanager: npm
+name: aws-infra-agentstack
+runtime: nodejs
+description: AWS infrastructure for n8n + Zep + Qdrant + Aurora using Pulumi (TypeScript)
+
 config:
-  pulumi:tags:
-    value:
-      pulumi:template: typescript
+  aws:region: us-east-2

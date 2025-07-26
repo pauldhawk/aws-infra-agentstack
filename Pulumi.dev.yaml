@@ -1,39 +1,8 @@
 config:
-  aws:region:
-    secure: AAABAHHKKhkbHSsoxcmlOTpZsyCOu4GIJ56MwB65x5vsCbe60ktmlvI=
-  # Domain name to use for the public n8n endpoint.  This must be
-  # pre‑configured to resolve to the EC2 instance’s elastic IP via your DNS
-  # provider.  Caddy will automatically obtain a TLS certificate from
-  # Let’s Encrypt for this hostname.
-  aws‑infra‑agentstack:n8nDomain: n8n.example.com
-  # Name of the Secrets Manager secret containing the n8n credentials.  The
-  # secret should contain a JSON object with at least a property called
-  # "N8N_API_KEY"; additional keys will be exported as environment
-  # variables for the n8n container.
-  aws‑infra‑agentstack:n8nSecretName: n8n/credential
-  # Secrets Manager name storing the Zep database credentials.  The secret
-  # should contain at least "username" and "password" keys which are
-  # applied to the Aurora cluster.
-  aws‑infra‑agentstack:dbSecretName: zep/db
-  # Optional: secret for Qdrant if using API keys.
-  aws‑infra‑agentstack:qdrantSecretName: qdrant/credential
-  # S3 bucket used for encrypted backups of Docker volumes.  If the
-  # bucket does not exist Pulumi will create it.
-  aws‑infra‑agentstack:backupBucketName: n8n-backups-${pulumi‑stack}
-  # Instance type for the EC2 host running Docker.  t3.small is a good
-  # balance of price and performance for a small self‑hosted installation.
-  aws‑infra‑agentstack:instanceType: t3.small
-  # Database engine version.  Aurora PostgreSQL with serverless v2 is
-  # configured automatically.
-  aws‑infra‑agentstack:dbEngineVersion: "17"
-  # Number of Aurora capacity units (ACU) to provision in the serverless
-  # cluster.  Values between 0.5 and 64 are allowed; 2 ACU is a
-  # reasonable default for small workloads.
-  aws‑infra‑agentstack:dbMinCapacity: "2"
-  aws‑infra‑agentstack:dbMaxCapacity: "4"
-  # Optional: SSH public key for the EC2 instance.  If provided, Pulumi
-  # creates a new EC2 key pair and installs this public key on the instance
-  # to allow SSH access.  Use the contents of your local ~/.ssh/id_rsa.pub.
-  aws‑infra‑agentstack:sshPublicKey: ""
-  aws-infra-agentstack:n8nDomain: n8n.paulhawk.com
-  aws-infra-agentstack:backupBucketName: pulumi-backups
+  aws:region: us-east-2
+  n8n:secretName: n8n/credentials
+  qdrant:secretName: qdrant/credentials
+  aurora:masterUsername: dbadmin
+  aurora:masterPassword:
+    secure: AAABANBedlEXNoe8dY1AlbF5Ui6rCl/zd/Z9NvssW196u3PIh9I7wTeRl84/MNdjXL5d3w==
+  aws-infra-agentstack:domainName: paulhawk.com
