@@ -1,24 +1,39 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
+// Note: We avoid using @pulumi/awsx here to minimise dependencies.  The VPC
+// and subnet resources are created manually below.
 
 // -----------------------------------------------------------------------------
 // Configuration
 // -----------------------------------------------------------------------------
 
+// General configuration.  We define separate configuration namespaces for AWS,
+// n8n, Qdrant and Aurora to avoid needing to prefix keys with the project
+// name.  Each Config constructor reads values like `aws:region` or
+// `aurora:masterPassword` directly from Pulumi.<stack>.yaml.  See the
+// Pulumi documentation for namespaced configuration keys:
+// https://www.pulumi.com/docs/intro/concepts/config/#namespaces.
+
 const config = new pulumi.Config();
-// AWS region from configuration or default region
-const region = config.get("aws:region") || aws.config.region;
+const awsConfig = new pulumi.Config("aws");
+const n8nConfig = new pulumi.Config("n8n");
+const qdrantConfig = new pulumi.Config("qdrant");
+const auroraConfig = new pulumi.Config("aurora");
+
+// AWS region (required).  Avoid using aws.config.region as it returns an
+// Output<string>; we need a plain string for constructing AZ names.
+const region: string = awsConfig.require("region");
+
 // Optional domain name used for TLS certificates.  You must own this domain
 // and configure DNS records (A/AAAA) to point to the EC2 instance's public IP.
 const domainName = config.get("domainName");
 
 // Names for secrets stored in Secrets Manager.  These can be overridden in
 // stack configuration.  The secrets must exist prior to deployment.
-const n8nSecretName = config.get("n8n:secretName") || "n8n/credentials";
-const qdrantSecretName = config.get("qdrant:secretName") || "qdrant/credentials";
-const auroraMasterUsername = config.get("aurora:masterUsername") || "dbadmin";
-const auroraMasterPassword = config.requireSecret("aurora:masterPassword");
+const n8nSecretName = n8nConfig.get("secretName") || "n8n/credentials";
+const qdrantSecretName = qdrantConfig.get("secretName") || "qdrant/credentials";
+const auroraMasterUsername = auroraConfig.get("masterUsername") || "dbadmin";
+const auroraMasterPassword = auroraConfig.requireSecret("masterPassword");
 
 // Capture project and stack names for use in user-data scripts
 const projectName = pulumi.getProject();
@@ -27,19 +42,111 @@ const projectName = pulumi.getProject();
 // VPC and Networking
 // -----------------------------------------------------------------------------
 
-// Use AWSX to create a VPC with public and private subnets across two
-// availability zones.  A NAT gateway is automatically provisioned for
-// outbound internet access from the private subnets.
-const vpc = new awsx.ec2.Vpc("app-vpc", {
+// -----------------------------------------------------------------------------
+// VPC and subnets
+//
+// We manually construct a VPC with two public and two private subnets.  Each
+// public subnet has an associated NAT gateway providing outbound access for
+// the private subnets.
+
+const vpc = new aws.ec2.Vpc("app-vpc", {
     cidrBlock: "10.0.0.0/16",
-    numberOfAvailabilityZones: 2,
-    natGateways: { strategy: "Single" },
+    enableDnsHostnames: true,
     tags: { Name: `${pulumi.getProject()}-vpc` },
 });
 
-// Export subnet IDs for reference
-const publicSubnetIds = vpc.publicSubnetIds;
-const privateSubnetIds = vpc.privateSubnetIds;
+// Internet gateway for the VPC
+const igw = new aws.ec2.InternetGateway("app-igw", {
+    vpcId: vpc.id,
+    tags: { Name: `${pulumi.getProject()}-igw` },
+});
+
+// Derive two availability zones using the configured region.  This simple
+// approach constructs zone names by appending 'a' and 'b' to the region (e.g.
+// us-east-2a and us-east-2b).  If your region has fewer than two zones or
+// different suffixes, override the `availabilityZones` configuration via
+// stack config.
+const az1 = region + "a";
+const az2 = region + "b";
+
+// Public and private subnets arrays to hold the resources
+const publicSubnets: aws.ec2.Subnet[] = [];
+const privateSubnets: aws.ec2.Subnet[] = [];
+
+// Create public and private subnets, NAT gateways and route tables
+[
+    { az: az1, cidrPublic: "10.0.0.0/24", cidrPrivate: "10.0.10.0/24" },
+    { az: az2, cidrPublic: "10.0.1.0/24", cidrPrivate: "10.0.11.0/24" },
+].forEach(({ az, cidrPublic, cidrPrivate }, index) => {
+    // Public subnet
+    const pubSubnet = new aws.ec2.Subnet(`public-subnet-${index}`, {
+        vpcId: vpc.id,
+        cidrBlock: cidrPublic,
+        availabilityZone: az,
+        mapPublicIpOnLaunch: true,
+        tags: { Name: `public-${az}` },
+    });
+    publicSubnets.push(pubSubnet);
+
+    // Allocate an Elastic IP for the NAT gateway
+    // Allocate an Elastic IP for the NAT gateway.  The `vpc` property has been
+    // removed because it is not supported in newer versions of the AWS SDK.
+    const eip = new aws.ec2.Eip(`nat-eip-${index}`, {});
+
+    // NAT gateway in the public subnet
+    const natGw = new aws.ec2.NatGateway(`nat-gw-${index}`, {
+        allocationId: eip.id,
+        subnetId: pubSubnet.id,
+        tags: { Name: `nat-${az}` },
+    });
+
+    // Public route table
+    const publicRt = new aws.ec2.RouteTable(`public-rt-${index}`, {
+        vpcId: vpc.id,
+        routes: [
+            {
+                cidrBlock: "0.0.0.0/0",
+                gatewayId: igw.id,
+            },
+        ],
+        tags: { Name: `public-rt-${az}` },
+    });
+
+    new aws.ec2.RouteTableAssociation(`public-rt-assoc-${index}`, {
+        subnetId: pubSubnet.id,
+        routeTableId: publicRt.id,
+    });
+
+    // Private subnet
+    const privSubnet = new aws.ec2.Subnet(`private-subnet-${index}`, {
+        vpcId: vpc.id,
+        cidrBlock: cidrPrivate,
+        availabilityZone: az,
+        mapPublicIpOnLaunch: false,
+        tags: { Name: `private-${az}` },
+    });
+    privateSubnets.push(privSubnet);
+
+    // Private route table with route to NAT gateway
+    const privateRt = new aws.ec2.RouteTable(`private-rt-${index}`, {
+        vpcId: vpc.id,
+        routes: [
+            {
+                cidrBlock: "0.0.0.0/0",
+                natGatewayId: natGw.id,
+            },
+        ],
+        tags: { Name: `private-rt-${az}` },
+    });
+    new aws.ec2.RouteTableAssociation(`private-rt-assoc-${index}`, {
+        subnetId: privSubnet.id,
+        routeTableId: privateRt.id,
+    });
+});
+
+// Outputs for public and private subnet IDs
+const publicSubnetIds = pulumi.output(publicSubnets.map(s => s.id));
+const privateSubnetIds = pulumi.output(privateSubnets.map(s => s.id));
 
 // -----------------------------------------------------------------------------
 // Security Groups
@@ -49,13 +156,13 @@ const privateSubnetIds = vpc.privateSubnetIds;
 // HTTPS (443) from anywhere, and all traffic from the VPC CIDR.  Egress is
 // unrestricted.
 const ec2Sg = new aws.ec2.SecurityGroup("ec2-sg", {
-    vpcId: vpc.vpcId,
+    vpcId: vpc.id,
     description: "Allow SSH, HTTP and HTTPS inbound; unrestricted egress",
     ingress: [
         { protocol: "tcp", fromPort: 22, toPort: 22, cidrBlocks: ["0.0.0.0/0"] },
         { protocol: "tcp", fromPort: 80, toPort: 80, cidrBlocks: ["0.0.0.0/0"] },
         { protocol: "tcp", fromPort: 443, toPort: 443, cidrBlocks: ["0.0.0.0/0"] },
-        { protocol: "tcp", fromPort: 0, toPort: 65535, cidrBlocks: [vpc.vpc.cidrBlock] },
+        { protocol: "tcp", fromPort: 0, toPort: 65535, cidrBlocks: [vpc.cidrBlock] },
     ],
     egress: [ { protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"] } ],
     tags: { Name: "ec2-sg" },
@@ -63,7 +170,7 @@ const ec2Sg = new aws.ec2.SecurityGroup("ec2-sg", {
 
 // Security group for the database allowing connections from the EC2 instances.
 const dbSg = new aws.ec2.SecurityGroup("db-sg", {
-    vpcId: vpc.vpcId,
+    vpcId: vpc.id,
     description: "Allow PostgreSQL traffic from EC2",
     ingress: [
         { protocol: "tcp", fromPort: 5432, toPort: 5432, securityGroups: [ec2Sg.id] },
@@ -100,7 +207,7 @@ new aws.secretsmanager.SecretVersion("aurora-master-password-version", {
 
 // Create a subnet group for the database using the private subnets
 const dbSubnetGroup = new aws.rds.SubnetGroup("db-subnet-group", {
-    subnetIds: privateSubnetIds,
+    subnetIds: privateSubnets.map(s => s.id),
     tags: { Name: "app-db-subnet-group" },
 });
 
@@ -129,6 +236,8 @@ const dbCluster = new aws.rds.Cluster("aurora-cluster", {
 const dbInstance = new aws.rds.ClusterInstance("aurora-instance", {
     clusterIdentifier: dbCluster.id,
     instanceClass: "db.serverless",
+    // Explicitly specify engine and engineVersion.  Using literal strings
+    // avoids type errors caused by referencing outputs.
     engine: "aurora-postgresql",
     engineVersion: "13.6",
     publiclyAccessible: false,
@@ -356,7 +465,7 @@ const ec2Instance = new aws.ec2.Instance("app-instance", {
     ami: ami.then(a => a.id),
     iamInstanceProfile: instanceProfile.name,
     vpcSecurityGroupIds: [ec2Sg.id],
-    subnetId: vpc.publicSubnetIds[0],
+    subnetId: publicSubnets[0].id,
     associatePublicIpAddress: true,
     userData: userData,
     tags: { Name: "app-instance" },
@@ -366,7 +475,7 @@ const ec2Instance = new aws.ec2.Instance("app-instance", {
 // Outputs
 // -----------------------------------------------------------------------------
 
-export const vpcId = vpc.vpcId;
+export const vpcId = vpc.id;
 export const publicSubnetsOut = publicSubnetIds;
 export const privateSubnetsOut = privateSubnetIds;
 export const ec2PublicIp = ec2Instance.publicIp;

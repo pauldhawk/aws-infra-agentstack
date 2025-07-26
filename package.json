@@ -1,14 +1,20 @@
 {
-    "name": "aws-infra-phawk",
-    "main": "index.ts",
-    "devDependencies": {
-        "@types/node": "^18",
-        "typescript": "^5.0.0"
-    },
-    "dependencies": {
-        "@pulumi/aws": "^7.1.0",
-        "@pulumi/awsx": "^3.0.0",
-        "@pulumi/pulumi": "^3.113.0",
-        "aws-sdk": "^2.1692.0"
-    }
+  "name": "aws-infra-agentstack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pulumi project for deploying n8n, Zep, Qdrant and Aurora on AWS (TypeScript)",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "lint": "echo 'no lint script defined'",
+    "start": "pulumi up"
+  },
+  "dependencies": {
+    "@pulumi/aws": "^7.0.0",
+    "@pulumi/pulumi": "^3.100.0",
+    "aws-sdk": "^2.1530.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
 }

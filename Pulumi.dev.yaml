@@ -4,5 +4,5 @@ config:
   qdrant:secretName: qdrant/credentials
   aurora:masterUsername: dbadmin
   aurora:masterPassword:
-    secure: AAABAGU8YDHvOk7437pcnLwQN8RhTsSFhi+IVCVgYW0p4dhx57997obcKK0gLw+gxyJ7xQ==
+    secure: AAABAJx9ioIDM03T3iGW1QaDL51twzOGwwp23er+b5aHQqmVzDnNcKqhjkiTr0YYP82KIA==
   aws-infra-agentstack:domainName: paulhawk.com
