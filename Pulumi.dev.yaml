@@ -1,9 +1,7 @@
 config:
   aws:region: us-east-2
-  n8n:secretName: n8n/credentials
-  qdrant:secretName: qdrant/credentials
+  n8n:secretName: n8n/credential
+  qdrant:secretName: qdrant/credential
   aurora:masterUsername: dbadmin
   aurora:masterPassword:
     secure: AAABAJx9ioIDM03T3iGW1QaDL51twzOGwwp23er+b5aHQqmVzDnNcKqhjkiTr0YYP82KIA==
-  aws-infra-agentstack:domainName: paulhawk.com
-  aws-infra-agentstack:domain: n8n.paulhawk.com

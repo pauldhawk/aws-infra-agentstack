@@ -29,8 +29,8 @@ aws_region = config.get("aws:region") or aws.config.region
 # secret values should be set via `pulumi config set --secret <key>` to
 # encrypt them in the state file.  Here we fetch the names from config to
 # create placeholder secrets if they don't already exist.
-n8n_secret_name = config.get("n8n:secretName") or "n8n/credentials"
-qdrant_secret_name = config.get("qdrant:secretName") or "qdrant/credentials"
+n8n_secret_name = config.get("n8n:secretName") or "n8n/credential"
+qdrant_secret_name = config.get("qdrant:secretName") or "qdrant/credential"
 aurora_master_username = config.get("aurora:masterUsername") or "dbadmin"
 aurora_master_password = config.get_secret("aurora:masterPassword") or pulumi.secret("changeme123!")
 

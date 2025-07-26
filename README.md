@@ -65,8 +65,8 @@ pulumi stack init dev
 # Configure your AWS region (defaults to us‑east‑2) and secrets.  You can
 # adjust these keys as needed.  Use --secret when setting sensitive values.
 pulumi config set aws:region us-east-2
-pulumi config set n8n:secretName n8n/credentials
-pulumi config set qdrant:secretName qdrant/credentials
+pulumi config set n8n:secretName n8n/credential
+pulumi config set qdrant:secretName qdrant/credential
 pulumi config set aurora:masterUsername dbadmin
 pulumi config set aurora:masterPassword S3cr3tP@ssw0rd --secret
 # Optionally specify a domain name for TLS (must point to the EC2 IP)

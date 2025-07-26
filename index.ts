@@ -30,8 +30,8 @@ const domainName = config.get("domainName");
 
 // Names for secrets stored in Secrets Manager.  These can be overridden in
 // stack configuration.  The secrets must exist prior to deployment.
-const n8nSecretName = n8nConfig.get("secretName") || "n8n/credentials";
-const qdrantSecretName = qdrantConfig.get("secretName") || "qdrant/credentials";
+const n8nSecretName = n8nConfig.get("secretName") || "n8n/credential";
+const qdrantSecretName = qdrantConfig.get("secretName") || "qdrant/credential";
 const auroraMasterUsername = auroraConfig.get("masterUsername") || "dbadmin";
 const auroraMasterPassword = auroraConfig.requireSecret("masterPassword");
 
@@ -209,7 +209,7 @@ const qdrantSecretArn = secretArn(qdrantSecretName);
 // Create a secret for the Aurora master password.  The value will be set from
 // configuration.  If the secret already exists, Pulumi will adopt it.
 const auroraPasswordSecret = new aws.secretsmanager.Secret("aurora-master-password", {
-    name: `${pulumi.getProject()}/aurora/masterPassword`,
+    name: `aurora/masterPassword`,
 });
 new aws.secretsmanager.SecretVersion("aurora-master-password-version", {
     secretId: auroraPasswordSecret.id,

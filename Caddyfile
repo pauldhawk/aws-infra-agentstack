@@ -1,7 +1,12 @@
-{$DOMAIN_NAME} {
-    encode gzip
-    reverse_proxy /n8n/* n8n:5678
-    reverse_proxy /zep/* zep:8000
-    reverse_proxy /qdrant/* qdrant:6333
+n8n.paulhawk.com {
+    reverse_proxy n8n:5678
+    tls hawkpaul@gmail.com
+}
+zep.paulhawk.com {
+    reverse_proxy zep:8000
+    tls hawkpaul@gmail.com
+}
+qdrant.paulhawk.com {
+    reverse_proxy qdrant:6333
     tls hawkpaul@gmail.com
 }
